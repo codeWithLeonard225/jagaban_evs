@@ -9,6 +9,7 @@ export default function ConstituencyForm() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  
 
   const positionsList = [
     "Chairman", "Deputy Chairman", "Secretary", "Assistant Secretary",
@@ -84,6 +85,7 @@ export default function ConstituencyForm() {
         submittedBy: user.fullName,
         district: user.district,
         constituency: user.constituency,
+        
         createdAt: new Date(),
       };
 
@@ -189,78 +191,86 @@ export default function ConstituencyForm() {
           </div>
 
           {/* REPORT SECTION */}
-          <div className="lg:col-span-8">
-            <div className="space-y-8">
-              {Object.keys(groupedResults).length === 0 ? (
-                <div className="bg-white p-20 rounded-3xl text-center text-gray-300 italic shadow-sm">
-                  Waiting for data from {user.constituency}...
-                </div>
-              ) : (
-                Object.keys(groupedResults).map((posName) => {
-                  const positionData = groupedResults[posName];
-                  const posTotalOverall = positionData.reduce((sum, item) => sum + item.totalOverallVotes, 0);
-                  const posTotalInvalid = positionData.reduce((sum, item) => sum + item.invalidVotes, 0);
-                  const posTotalValid = posTotalOverall - posTotalInvalid;
+        {/* REPORT SECTION */}
+<div className="lg:col-span-8">
+  <div className="space-y-8">
+    {Object.keys(groupedResults).map((posName) => {
+      const positionData = groupedResults[posName];
 
-                  return (
-                    <div key={posName} className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200">
-                      <div className="bg-blue-900 p-4 px-6 flex justify-between items-center text-white">
-                        <h3 className="font-black uppercase tracking-widest text-sm">{posName}</h3>
-                        <div className="text-[10px] bg-white/20 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
-                          {positionData.length} Candidates
-                        </div>
-                      </div>
+      // --- CALCULATE TOTALS FOR THIS POSITION ---
+      const posTotalOverall = positionData.reduce((sum, item) => sum + Number(item.totalOverallVotes || 0), 0);
+      const posTotalInvalid = positionData.reduce((sum, item) => sum + Number(item.invalidVotes || 0), 0);
+      const posTotalValid = posTotalOverall - posTotalInvalid;
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-gray-50 text-gray-400 font-bold uppercase border-b text-[9px]">
-                            <tr>
-                              <th className="p-4">Candidate</th>
-                              <th className="p-4">Camp</th>
-                              <th className="p-4 text-center bg-gray-100">Valid</th>
-                              <th className="p-4 text-center text-red-400">Invalid</th>
-                              <th className="p-4 text-center bg-blue-50">Total</th>
-                              <th className="p-4 text-center">Votes</th>
-                              <th className="p-4 text-center bg-yellow-50">%</th>
-                              <th className="p-4">Remarks</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {positionData.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-blue-50/50 transition duration-200">
-                                <td className="p-4 font-bold text-blue-900 truncate max-w-[120px]">{item.name}</td>
-                                <td className="p-4 text-gray-500">{item.campName}</td>
-                                <td className="p-4 text-center font-medium bg-gray-50">{item.totalOverallVotes - item.invalidVotes}</td>
-                                <td className="p-4 text-center text-red-500 font-medium">{item.invalidVotes}</td>
-                                <td className="p-4 text-center font-medium bg-blue-50/50">{item.totalOverallVotes}</td>
-                                <td className="p-4 text-center font-black text-gray-800">{item.individualVotes}</td>
-                                <td className="p-4 text-center bg-yellow-50/50 font-black text-yellow-700">{item.percentage}%</td>
-                                <td className="p-4 italic text-gray-400 text-[10px] truncate max-w-[80px]">{item.remarks || "---"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot className="bg-gray-900 text-white border-t-4 border-red-600">
-                            <tr>
-                              <td colSpan="8" className="p-4 text-[10px]">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-black uppercase text-red-400">Position Totals:</span>
-                                  <div className="flex gap-4">
-                                    <span>Valid: <b className="text-green-400">{posTotalValid}</b></span>
-                                    <span>Inv: <b className="text-red-400">{posTotalInvalid}</b></span>
-                                    <span className="bg-white/10 px-2 rounded">Total: <b>{posTotalOverall}</b></span>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
+      return (
+        <div key={posName} className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200">
+          <div className="bg-blue-900 p-4 text-white font-black uppercase text-xs tracking-widest px-6 flex justify-between">
+            <span>{posName}</span>
+            <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded uppercase">Live Data</span>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 border-b">
+                <tr>
+                  <th className="p-4">Proof</th>
+                  <th className="p-4">Candidate</th>
+                  <th className="p-4">Camp</th>
+                  <th className="p-4 text-center bg-gray-100">Valid</th>
+                  <th className="p-4 text-center text-red-400">Invalid</th>
+                  <th className="p-4 text-center bg-blue-50">Total</th>
+                  <th className="p-4 text-center">Votes</th>
+                  <th className="p-4 text-center bg-yellow-50">%</th>
+                  <th className="p-4">Remarks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {positionData.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-blue-50/50">
+                    <td className="p-4">
+                      {item.resultPhotoUrl ? (
+                        <a href={item.resultPhotoUrl} target="_blank" rel="noreferrer" className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center border hover:border-blue-500 transition overflow-hidden">
+                          <img src={item.resultPhotoUrl} className="w-full h-full object-cover" alt="Proof" />
+                        </a>
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[8px] text-gray-400 font-bold border-2 border-dashed">N/A</div>
+                      )}
+                    </td>
+                    <td className="p-4 font-bold text-blue-900 truncate max-w-[120px]">{item.name}</td>
+                    <td className="p-4 text-gray-500 uppercase font-bold text-[9px]">{item.campName}</td>
+                    <td className="p-4 text-center font-medium bg-gray-50">{item.totalOverallVotes - item.invalidVotes}</td>
+                    <td className="p-4 text-center text-red-500 font-medium">{item.invalidVotes}</td>
+                    <td className="p-4 text-center font-medium bg-blue-50/50">{item.totalOverallVotes}</td>
+                    <td className="p-4 text-center font-black text-gray-800">{item.individualVotes}</td>
+                    <td className="p-4 text-center bg-yellow-50/50 font-black text-yellow-700">{item.percentage}%</td>
+                    <td className="p-4 italic text-gray-400 text-[10px] truncate max-w-[80px]">{item.remarks || "---"}</td>
+                  </tr>
+                ))}
+              </tbody>
+
+              {/* --- ADDED FOOTER --- */}
+              <tfoot className="bg-gray-900 text-white border-t-4 border-red-600">
+                <tr>
+                  <td colSpan="9" className="p-4 text-[10px]">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black uppercase text-red-400 tracking-tighter">Verified Position Totals:</span>
+                      <div className="flex gap-4">
+                        <span>Valid: <b className="text-green-400">{posTotalValid}</b></span>
+                        <span>Inv: <b className="text-red-400">{posTotalInvalid}</b></span>
+                        <span className="bg-white/10 px-3 py-1 rounded-full">Total: <b className="text-white">{posTotalOverall}</b></span>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                  </td>
+                </tr>
+              </tfoot>
+
+            </table>
           </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
         </div>
       </div>
     </div>

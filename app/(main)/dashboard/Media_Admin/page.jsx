@@ -14,6 +14,7 @@ import CandidatePerformanceReport from "../../Reports/CandidatePerformanceReport
 import PositionLevelReport from "../../Reports/PositionLevelReport/page";
 import CoordinatorRegistration from "../../Register/page";
 import ConstituencyLevelReport from "../../Reports/ConstituencyLevelReport/page";
+import SubmissionAuditReport from "../../Reports/SubmissionAuditReport/page";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: <MdDashboard /> },
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
     label: "Reports",
     icon: <MdLibraryBooks />,
     children: [
+      { key: "SubmissionAuditReport", label: "Submission Audit" },
       { key: "District", label: "District" },
       { key: "ConstituencyLevelReport", label: "Constituency Level" },
       { key: "CampDominance", label: "Camp Dominance" },
@@ -124,6 +126,8 @@ export default function AdminLedger() {
         return <DeleteDataPage />;
       case "Register":
         return <CoordinatorRegistration />;
+      case "SubmissionAuditReport":
+        return <SubmissionAuditReport />;
       case "District":
         return <District />;
       case "CampDominance":
