@@ -22,12 +22,20 @@ export default function StateOfRaceSummary() {
   // --- STRATEGIC AGGREGATION LOGIC ---
   const districtAnalytics = useMemo(() => {
     const districts = {};
+    const processedSheets = new Set(); // To prevent over-counting shared totals
 
     results.forEach((item) => {
       const dName = item.district || "Unassigned";
       const pos = item.position;
       const candidate = item.name;
       const votes = Number(item.individualVotes || 0);
+      const totalOverall = Number(item.totalOverallVotes || 0);
+      const invalid = Number(item.invalidVotes || 0);
+      const valid = totalOverall - invalid;
+
+      // Unique key to identify a specific result sheet/upload
+      // Even if 10 candidates are in the same position, they share this URL
+      const sheetKey = `${item.constituency}_${pos}_${item.resultPhotoUrl}`;
 
       if (!districts[dName]) {
         districts[dName] = {
@@ -37,10 +45,14 @@ export default function StateOfRaceSummary() {
         };
       }
 
-      districts[dName].totalValid += (Number(item.totalOverallVotes) - Number(item.invalidVotes));
-      districts[dName].totalInvalid += Number(item.invalidVotes);
+      // 1. UNIQUE CALCULATION: Only add valid/invalid once per sheet
+      if (!processedSheets.has(sheetKey)) {
+        districts[dName].totalValid += valid;
+        districts[dName].totalInvalid += invalid;
+        processedSheets.add(sheetKey);
+      }
 
-      // Track votes per candidate per position in this district
+      // 2. CANDIDATE AGGREGATION: Always add individual votes
       if (!districts[dName].positions[pos]) districts[dName].positions[pos] = {};
       districts[dName].positions[pos][candidate] = (districts[dName].positions[pos][candidate] || 0) + votes;
     });
@@ -54,7 +66,7 @@ export default function StateOfRaceSummary() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         <header className="mb-10 text-center">
-          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">State of the Race</h1>
+          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter italic">State of the Race</h1>
           <p className="text-red-600 font-bold text-xs uppercase tracking-[0.4em] mt-2">District-Level Strategic Intelligence</p>
         </header>
 
@@ -94,8 +106,8 @@ export default function StateOfRaceSummary() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(data.positions).map(([pos, candidates]) => {
-                    // Find the candidate with the highest votes
-                    const leader = Object.entries(candidates).reduce((a, b) => (a[1] > b[1] ? a : b));
+                    // Sorting to find the leader
+                    const leader = Object.entries(candidates).sort((a, b) => b[1] - a[1])[0];
                     
                     return (
                       <div key={pos} className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100 relative group hover:bg-blue-900 transition-colors duration-300">
@@ -103,7 +115,9 @@ export default function StateOfRaceSummary() {
                         <div className="flex justify-between items-end">
                           <div>
                             <p className="text-lg font-black text-slate-800 group-hover:text-white leading-tight uppercase">{leader[0]}</p>
-                            <p className="text-[10px] font-bold text-blue-600 group-hover:text-yellow-400 mt-1 uppercase">Leading by {leader[1].toLocaleString()} Votes</p>
+                            <p className="text-[10px] font-bold text-blue-600 group-hover:text-yellow-400 mt-1 uppercase">
+                                {leader[1].toLocaleString()} Total Votes
+                            </p>
                           </div>
                           <MdGppGood className="text-3xl text-green-500 group-hover:text-white opacity-20 group-hover:opacity-100 transition-opacity" />
                         </div>
@@ -122,7 +136,7 @@ export default function StateOfRaceSummary() {
                         {data.totalInvalid > (data.totalValid * 0.05) ? 'URGENT ATTENTION' : 'STABLE'}
                     </span>
                  </div>
-                 <p className="text-[9px] font-bold text-blue-400 italic">Report Live as of {new Date().toLocaleTimeString()}</p>
+                 <p className="text-[9px] font-bold text-blue-400 italic uppercase">Report Live: {new Date().toLocaleTimeString()}</p>
               </div>
             </div>
           ))}

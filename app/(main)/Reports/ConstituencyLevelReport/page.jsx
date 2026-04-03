@@ -10,8 +10,7 @@ export default function ConstituencyLevelReport({ targetConstituency }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If no target is passed, we could default to a specific one or fetch all
-    const q = targetConstituency 
+    const q = targetConstituency
       ? query(collection(db, "Jagaban_results"), where("constituency", "==", targetConstituency))
       : query(collection(db, "Jagaban_results"));
 
@@ -23,7 +22,6 @@ export default function ConstituencyLevelReport({ targetConstituency }) {
     return () => unsubscribe();
   }, [targetConstituency]);
 
-  // --- CONSTITUENCY AGGREGATION ENGINE ---
   const stats = useMemo(() => {
     const summary = {
       totalOverall: 0,
@@ -32,80 +30,92 @@ export default function ConstituencyLevelReport({ targetConstituency }) {
       positionBreakdown: {}
     };
 
+    const processedSheets = new Set();
+
     results.forEach(item => {
       const overall = Number(item.totalOverallVotes || 0);
       const invalid = Number(item.invalidVotes || 0);
       const pos = item.position || "Unknown";
 
-      // Global Totals for this Constituency
-      summary.totalOverall += overall;
-      summary.totalInvalid += invalid;
-      summary.totalValid += (overall - invalid);
+      const sheetKey = `${item.constituency}_${pos}_${item.resultPhotoUrl}`;
 
-      // Position-wise grouping
+      if (!processedSheets.has(sheetKey)) {
+        summary.totalOverall += overall;
+        summary.totalInvalid += invalid;
+        summary.totalValid += (overall - invalid);
+        processedSheets.add(sheetKey);
+      }
+
       if (!summary.positionBreakdown[pos]) {
         summary.positionBreakdown[pos] = {
           posName: pos,
           posValid: 0,
           posInvalid: 0,
+          district: item.district || "N/A", // CAPTURE DISTRICT
+          constituency: item.constituency || "N/A", // CAPTURE CONSTITUENCY
           candidates: []
         };
       }
-      
-      summary.positionBreakdown[pos].posValid += (overall - invalid);
-      summary.positionBreakdown[pos].posInvalid += invalid;
+
+      if (!summary.positionBreakdown[pos].hasCountedSheet) {
+        summary.positionBreakdown[pos].posValid = overall - invalid;
+        summary.positionBreakdown[pos].posInvalid = invalid;
+        summary.positionBreakdown[pos].hasCountedSheet = true;
+      }
+
       summary.positionBreakdown[pos].candidates.push({
         name: item.name,
         votes: Number(item.individualVotes || 0),
-        perc: item.percentage
+        perc: item.percentage,
+        campName: item.campName || "N/A"   // ✅ ADD THIS
       });
     });
 
     return summary;
   }, [results]);
 
-  if (loading) return <div className="p-20 text-center font-black animate-pulse text-red-600">LOADING CONSTITUENCY DATA...</div>;
+  if (loading) return <div className="p-20 text-center font-black animate-pulse text-red-600 uppercase">Verifying Data Integrity...</div>;
 
-  const spoilageRate = stats.totalOverall > 0 
-    ? ((stats.totalInvalid / stats.totalOverall) * 100).toFixed(2) 
+  const spoilageRate = stats.totalOverall > 0
+    ? ((stats.totalInvalid / stats.totalOverall) * 100).toFixed(2)
     : "0.00";
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
-        
-        {/* 1. CONSTITUENCY SUMMARY CARDS */}
+
+        {/* 1. CONSTITUENCY SUMMARY CARDS (Remains as requested previously) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-blue-900 p-6 rounded-[2rem] text-white shadow-xl flex flex-col justify-center border-b-8 border-blue-700">
-             <MdLocationCity size={32} className="mb-2 text-blue-300" />
-             <h2 className="text-2xl font-black uppercase italic tracking-tighter">{targetConstituency || "All Districts"}</h2>
-             <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Active Reporting Unit</p>
+            <MdLocationCity size={32} className="mb-2 text-blue-300" />
+            <h2 className="text-2xl font-black uppercase italic tracking-tighter">{targetConstituency || "National"}</h2>
+            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Reporting Unit</p>
           </div>
 
           <div className="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100">
-             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Votes Cast</p>
-             <div className="flex items-center gap-2">
-                <MdHowToVote className="text-blue-600" size={24} />
-                <span className="text-3xl font-black text-slate-900">{stats.totalOverall.toLocaleString()}</span>
-             </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Votes Cast</p>
+            <div className="flex items-center gap-2">
+              <MdHowToVote className="text-blue-600" size={24} />
+              <span className="text-3xl font-black text-slate-900">{stats.totalOverall.toLocaleString()}</span>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100">
-             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Invalid</p>
-             <div className="flex items-center gap-2">
-                <MdReportProblem className="text-red-500" size={24} />
-                <span className="text-3xl font-black text-red-600">{stats.totalInvalid.toLocaleString()}</span>
-             </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Invalid</p>
+            <div className="flex items-center gap-2">
+              <MdReportProblem className="text-red-500" size={24} />
+              <span className="text-3xl font-black text-red-600">{stats.totalInvalid.toLocaleString()}</span>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100">
-             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Spoilage Rate</p>
-             <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full border-4 border-slate-100 border-t-red-500 flex items-center justify-center">
-                    <span className="text-[10px] font-bold">{spoilageRate}%</span>
-                </div>
-                <span className="text-sm font-black text-slate-700 uppercase">Invalid Ratio</span>
-             </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Spoilage Rate</p>
+            <div className="flex items-center gap-2">
+              <div className={`w-12 h-12 rounded-full border-4 border-slate-100 flex items-center justify-center ${Number(spoilageRate) > 5 ? 'border-t-red-500' : 'border-t-green-500'}`}>
+                <span className="text-[10px] font-black">{spoilageRate}%</span>
+              </div>
+              <span className="text-xs font-black text-slate-700 uppercase leading-tight">Invalid<br />Ratio</span>
+            </div>
           </div>
         </div>
 
@@ -115,13 +125,14 @@ export default function ConstituencyLevelReport({ targetConstituency }) {
             <MdFactCheck className="text-green-400" size={24} />
             <h3 className="text-white font-black uppercase tracking-widest text-sm">Summarized Position Ledger</h3>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b">
                   <th className="p-6">Position</th>
-                  <th className="p-6">Constituency Total</th>
+                  <th className="p-6">Location</th> {/* NEW COLUMN HEADER */}
+                  <th className="p-6">Valid Votes</th>
                   <th className="p-6">Leading Candidate</th>
                   <th className="p-6">Candidate Spread</th>
                   <th className="p-6 text-center">Invalid</th>
@@ -129,42 +140,50 @@ export default function ConstituencyLevelReport({ targetConstituency }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {Object.values(stats.positionBreakdown).map((pos, idx) => {
-                  const sortedCands = [...pos.candidates].sort((a,b) => b.votes - a.votes);
+                  const sortedCands = [...pos.candidates].sort((a, b) => b.votes - a.votes);
                   const winner = sortedCands[0];
 
                   return (
                     <tr key={idx} className="hover:bg-blue-50/50 transition duration-200">
                       <td className="p-6">
                         <p className="font-black text-blue-900 uppercase text-sm tracking-tighter">{pos.posName}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Station Processed</p>
+                        <p className="text-[9px] font-bold text-purple-600 uppercase">
+                          {winner?.campName || "No Camp"}
+                        </p>
                       </td>
+
+                      {/* NEW LOCATION CELL */}
+                      <td className="p-6">
+                        <p className="text-xs font-black text-slate-800 uppercase leading-none">{pos.district}</p>
+                        <p className="text-[9px] font-bold text-blue-600 uppercase mt-1">{pos.constituency}</p>
+                      </td>
+
                       <td className="p-6">
                         <span className="text-lg font-black text-slate-800">{pos.posValid.toLocaleString()}</span>
-                        <p className="text-[9px] font-bold text-green-600 uppercase">Valid Votes</p>
                       </td>
                       <td className="p-6">
-                        <div className="bg-yellow-100 px-3 py-1 rounded-lg inline-block">
-                           <p className="text-[10px] font-black text-yellow-800 uppercase leading-none">{winner?.name}</p>
-                           <p className="text-[9px] font-bold text-yellow-600 uppercase">{winner?.votes} Votes</p>
+                        <div className="bg-yellow-100 px-3 py-1.5 rounded-xl inline-block border border-yellow-200">
+                          <p className="text-[10px] font-black text-yellow-800 uppercase leading-none mb-1">{winner?.name}</p>
+                          <p className="text-[11px] font-black text-blue-700 uppercase">{winner?.votes.toLocaleString()} Votes</p>
                         </div>
                       </td>
                       <td className="p-6">
-                         <div className="flex -space-x-2">
-                            {sortedCands.slice(0, 3).map((_, i) => (
-                               <div key={i} className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] font-black text-slate-500">
-                                 {i + 1}
-                               </div>
-                            ))}
-                            {sortedCands.length > 3 && (
-                                <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[9px] font-black text-blue-600">
-                                    +{sortedCands.length - 3}
-                                </div>
-                            )}
-                         </div>
+                        <div className="flex -space-x-2">
+                          {sortedCands.slice(0, 3).map((cand, i) => (
+                            <div key={i} title={cand.name} className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] font-black text-slate-600 shadow-sm uppercase">
+                              {cand.name.charAt(0)}
+                            </div>
+                          ))}
+                          {sortedCands.length > 3 && (
+                            <div className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-[9px] font-black text-white">
+                              +{sortedCands.length - 3}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="p-6 text-center">
                         <span className="text-xs font-black text-red-500 bg-red-50 px-3 py-1 rounded-full border border-red-100">
-                           {pos.posInvalid}
+                          {pos.posInvalid}
                         </span>
                       </td>
                     </tr>
@@ -176,26 +195,23 @@ export default function ConstituencyLevelReport({ targetConstituency }) {
         </div>
 
         {/* 3. PARTICIPATION INSIGHT */}
-        <div className="mt-8 bg-blue-50 p-6 rounded-[2rem] border-2 border-dashed border-blue-200 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-                <div className="p-4 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-200">
-                    <MdMap size={24} />
-                </div>
-                <div>
-                    <h4 className="font-black text-blue-900 uppercase tracking-tighter text-lg leading-tight">Data Saturation</h4>
-                    <p className="text-[10px] font-bold text-blue-400 uppercase">Real-time participation flow for {targetConstituency}</p>
-                </div>
+        <div className="mt-8 bg-blue-50 p-6 rounded-[2rem] border-2 border-dashed border-blue-200 flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-blue-600 rounded-2xl text-white shadow-lg">
+              <MdMap size={24} />
             </div>
-            <div className="text-right">
-                <button 
-                  onClick={() => window.print()}
-                  className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition active:scale-95 shadow-xl"
-                >
-                    Generate Printable Audit
-                </button>
+            <div>
+              <h4 className="font-black text-blue-900 uppercase tracking-tighter text-lg leading-tight">National Audit Ready</h4>
+              <p className="text-[10px] font-bold text-blue-400 uppercase italic">Detailed location data attached to every position result.</p>
             </div>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition shadow-xl"
+          >
+            Generate Audit PDF
+          </button>
         </div>
-
       </div>
     </div>
   );
