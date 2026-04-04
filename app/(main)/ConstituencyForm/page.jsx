@@ -15,13 +15,11 @@ export default function ConstituencyForm() {
 
   const positionsList = [
     "Chairman", "Deputy Chairman", "Secretary", "Assistant Secretary",
-    "Constituency Organising Secretary", "Deputy Organising Secretary",
+    "Organising Secretary", "Deputy Organising Secretary",
     "Treasurer", "Assistant Treasurer", "PRO", "Deputy PRO",
     "Women's Leader", "Deputy Women's Leader", "Veteran's Leader",
-    "Deputy Veteran's Leader", "Young Leader", "Deputy Young Leader",
-    "Sitting APC MP", "Sitting APC Councilor - Ward 1",
-    "Sitting APC Councilor - Ward 2", "Sitting APC Councilor - Ward 3",
-    "Sitting APC Councilor - Ward 4",
+    "Deputy Veteran's Leader", "Young Congress Leader", "Deputy Young Congress Leader",
+   
   ];
 
   // Initial state for a single candidate row
@@ -98,7 +96,11 @@ export default function ConstituencyForm() {
     // Validation
     if (!formData.photo) return alert("⚠️ Upload result proof!");
     if (formData.candidates.some(c => !c.name || !c.individualVotes)) return alert("⚠️ Fill all candidate details!");
-    
+    if (submittedPositions.includes(formData.position)) {
+  alert("⚠️ This position has already been submitted!");
+  return;
+}
+
     const combinedCandidateVotes = formData.candidates.reduce((sum, c) => sum + Number(c.individualVotes), 0);
     if (combinedCandidateVotes > validVotes) return alert("⚠️ Total candidate votes exceed valid votes!");
 
@@ -150,6 +152,20 @@ export default function ConstituencyForm() {
     return acc;
   }, {});
 
+  const submittedPositions = useMemo(() => {
+  const unique = new Set();
+  results.forEach(item => {
+    if (item.position) {
+      unique.add(item.position);
+    }
+  });
+  return Array.from(unique);
+}, [results]);
+
+const availablePositions = useMemo(() => {
+  return positionsList.filter(pos => !submittedPositions.includes(pos));
+}, [positionsList, submittedPositions]);
+
   if (!user) return <div className="p-20 text-center font-black animate-pulse">VERIFYING...</div>;
 
   return (
@@ -178,7 +194,13 @@ export default function ConstituencyForm() {
 
               <select name="position" value={formData.position} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded-xl font-bold text-sm" required>
                 <option value="">-- Select Position --</option>
-                {positionsList.map((p, i) => <option key={i} value={p}>{p}</option>)}
+               {availablePositions.length === 0 ? (
+  <option value="">All positions submitted</option>
+) : (
+  availablePositions.map((p, i) => (
+    <option key={i} value={p}>{p}</option>
+  ))
+)}
               </select>
 
               {/* SHARED TOTALS */}
