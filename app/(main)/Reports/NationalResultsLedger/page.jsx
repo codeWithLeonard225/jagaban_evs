@@ -133,7 +133,7 @@ export default function NationalResultsLedger() {
                     <MdFactCheck className="text-yellow-500" />
                     <h3 className="font-black uppercase text-xs tracking-widest">{posName}</h3>
                   </div>
-                  <span className="text-[10px] font-bold opacity-40 uppercase">{filteredGroupedData[posName].length} Position Reported</span>
+                  <span className="text-[10px] font-bold opacity-40 uppercase">{filteredGroupedData[posName].length} Candidate Reported</span>
                 </div>
                 
                 <div className="overflow-x-auto">

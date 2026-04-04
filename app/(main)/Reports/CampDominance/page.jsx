@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { db } from "@/app/lib/firebase";
 import { collection, onSnapshot, query } from "firebase/firestore";
-import { MdMilitaryTech, MdTrendingUp, MdGroups, MdLeaderboard } from "react-icons/md";
+import { MdMilitaryTech, MdTrendingUp, MdGroups, MdEmojiEvents, MdLocationCity } from "react-icons/md";
 
 export default function CampPerformanceAnalytics() {
   const [results, setResults] = useState([]);
@@ -19,140 +19,120 @@ export default function CampPerformanceAnalytics() {
     return () => unsubscribe();
   }, []);
 
-  // --- ANALYTICS ENGINE: CAMP VS CAMP ---
-  const campStats = useMemo(() => {
-    const camps = {};
-    let grandTotal = 0;
+  const analytics = useMemo(() => {
+    const competitionMap = {}; // Tracks: { District_Position: { CampName: totalVotes } }
+    const campWins = {}; // Tracks: { CampName: { PositionName: winCount } }
 
+    // 1. GROUP VOTES BY DISTRICT AND POSITION TO FIND WINNERS
     results.forEach((item) => {
-      const cName = item.campName?.toUpperCase() || "INDEPENDENT / OTHER";
+      const dName = item.district || "Unknown";
+      const pos = item.position || "Unknown";
+      const camp = item.campName?.toUpperCase() || "INDEPENDENT";
       const votes = Number(item.individualVotes || 0);
-      const district = item.district || "Unknown";
+      
+      // We group by District + Position (and Constituency if you want more granular wins)
+      const competitionKey = `${dName}_${pos}`;
 
-      if (!camps[cName]) {
-        camps[cName] = {
-          name: cName,
-          totalVotes: 0,
-          districtsWon: new Set(),
-          positionStrength: {}, // How many votes they get per role
-        };
-      }
+      if (!competitionMap[competitionKey]) competitionMap[competitionKey] = {};
+      competitionMap[competitionKey][camp] = (competitionMap[competitionKey][camp] || 0) + votes;
 
-      camps[cName].totalVotes += votes;
-      camps[cName].districtsWon.add(district);
-      grandTotal += votes;
-
-      // Track strength by position
-      const pos = item.position;
-      camps[cName].positionStrength[pos] = (camps[cName].positionStrength[pos] || 0) + votes;
+      if (!campWins[camp]) campWins[camp] = { name: camp, totalWins: 0, breakdown: {} };
     });
 
-    // Sort camps by total votes (Highest first)
-    return {
-      sortedCamps: Object.values(camps).sort((a, b) => b.totalVotes - a.totalVotes),
-      grandTotal
-    };
+    // 2. CALCULATE WHO WON EACH SEAT
+    Object.entries(competitionMap).forEach(([key, campsInRace]) => {
+      const positionName = key.split("_")[1];
+      
+      // Find the camp with the highest votes in this specific race
+      const winner = Object.entries(campsInRace).sort((a, b) => b[1] - a[1])[0];
+      const winningCamp = winner[0];
+      const winningVotes = winner[1];
+
+      // Only count as a win if they actually have votes (ignore 0-vote placeholders)
+      if (winningVotes > 0) {
+        campWins[winningCamp].totalWins += 1;
+        campWins[winningCamp].breakdown[positionName] = (campWins[winningCamp].breakdown[positionName] || 0) + 1;
+      }
+    });
+
+    return Object.values(campWins).sort((a, b) => b.totalWins - a.totalWins);
   }, [results]);
 
-  if (loading) return <div className="p-20 text-center font-black animate-pulse text-emerald-600">ANALYZING CAMP MOBILIZATION...</div>;
+  if (loading) return <div className="p-20 text-center font-black animate-pulse text-yellow-500">CALCULATING SEAT DISTRIBUTION...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-10 text-white font-sans">
+    <div className="min-h-screen bg-red-600 p-4 md:p-10 text-white">
       <div className="max-w-7xl mx-auto">
         
-        {/* HEADER */}
-        <header className="mb-12 border-l-4 border-yellow-500 pl-6">
-          <h1 className="text-5xl font-black uppercase tracking-tighter italic">Camp Power Rankings</h1>
-          <p className="text-yellow-500 font-bold text-xs uppercase tracking-[0.5em] mt-2">Head-to-Head Internal Faction Analytics</p>
+        <header className="mb-12">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-1 w-12 bg-yellow-500"></div>
+            <p className="text-yellow-500 font-black text-xs uppercase tracking-[0.4em]">Strategic Seat Distribution</p>
+          </div>
+          <h1 className="text-5xl font-black uppercase tracking-tighter italic">Faction Victory Ledger</h1>
         </header>
 
-        {/* RANKING CARDS */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* LEFT: THE LEADERBOARD */}
-          <div className="lg:col-span-8 space-y-6">
-            {campStats.sortedCamps.map((camp, index) => {
-              const share = ((camp.totalVotes / campStats.grandTotal) * 100).toFixed(1);
+        <div className="grid grid-cols-1 gap-8">
+          {analytics.map((camp, index) => (
+            <div key={camp.name} className="bg-slate-900 rounded-[3rem] overflow-hidden border border-slate-800 transition hover:border-yellow-500/40 shadow-2xl">
               
-              return (
-                <div key={camp.name} className="bg-slate-900 rounded-[2rem] p-1 border border-slate-800 hover:border-yellow-500/50 transition duration-500">
-                  <div className="p-6 flex flex-col md:flex-row items-center gap-6">
-                    {/* Rank Circle */}
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black border-4 ${index === 0 ? 'bg-yellow-500 border-yellow-300 text-slate-950' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-                      {index + 1}
-                    </div>
-
-                    <div className="flex-1 w-full">
-                      <div className="flex justify-between items-end mb-2">
-                        <div>
-                          <h3 className="text-2xl font-black uppercase italic tracking-tight">{camp.name}</h3>
-                          <p className="text-[10px] font-bold text-slate-500 uppercase">Active in {camp.districtsWon.size} Districts</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-3xl font-black text-white">{camp.totalVotes.toLocaleString()}</p>
-                          <p className="text-[10px] font-black text-yellow-500 uppercase">{share}% Share of Total Votes</p>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ${index === 0 ? 'bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-blue-600'}`}
-                          style={{ width: `${share}%` }}
-                        ></div>
-                      </div>
-                    </div>
+              {/* TOP BAR: CAMP NAME & TOTAL WINS */}
+              <div className="p-8 flex flex-col md:flex-row justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800">
+                <div className="flex items-center gap-6">
+                  <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl ${index === 0 ? 'bg-yellow-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    <MdEmojiEvents size={40} />
                   </div>
-                  
-                  {/* Detailed Breakdown (Accordion-style display) */}
-                  <div className="bg-slate-950/50 rounded-b-[1.8rem] p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-slate-800/50">
-                    {Object.entries(camp.positionStrength).slice(0, 4).map(([pos, val]) => (
-                        <div key={pos} className="border-l border-slate-800 pl-3">
-                            <p className="text-[8px] font-black text-slate-500 uppercase truncate">{pos}</p>
-                            <p className="text-sm font-black text-slate-300">{val.toLocaleString()}</p>
-                        </div>
-                    ))}
+                  <div>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tighter">{camp.name}</h2>
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Total Positions Won Across Districts</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* RIGHT: STRATEGIC INSIGHTS */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-yellow-500 rounded-[2.5rem] p-8 text-slate-950 shadow-2xl shadow-yellow-500/10">
-                <MdMilitaryTech size={48} className="mb-4" />
-                <h2 className="text-2xl font-black uppercase leading-none">Top Performing Camp</h2>
-                <p className="text-4xl font-black mt-4 italic uppercase tracking-tighter">
-                    {campStats.sortedCamps[0]?.name || "N/A"}
-                </p>
-                <div className="mt-6 p-4 bg-slate-950/10 rounded-2xl border border-slate-950/10">
-                    <p className="text-xs font-bold italic">"This faction is currently providing the strongest mobilization across all monitored positions."</p>
+                <div className="text-center md:text-right mt-6 md:mt-0">
+                  <span className="text-6xl font-black text-white leading-none">{camp.totalWins}</span>
+                  <p className="text-yellow-500 font-black text-[10px] uppercase tracking-widest">Seats Secured</p>
                 </div>
-            </div>
+              </div>
 
-            <div className="bg-slate-900 rounded-[2.5rem] p-8 border border-slate-800">
-                <h3 className="text-xs font-black uppercase text-slate-500 tracking-[0.2em] mb-6 flex items-center gap-2">
-                    <MdTrendingUp className="text-blue-500" /> Strategic Distribution
-                </h3>
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black uppercase">Total Results Captured</span>
-                        <span className="text-lg font-black">{results.length}</span>
+              {/* BOTTOM BAR: POSITION BREAKDOWN GRID */}
+              <div className="p-8 bg-slate-950/40">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Positions Breakdown (Wins per Role)</h3>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {Object.entries(camp.breakdown).length > 0 ? (
+                    Object.entries(camp.breakdown).map(([pos, count]) => (
+                      <div key={pos} className="bg-slate-900/80 p-5 rounded-3xl border border-slate-800 hover:bg-slate-800 transition-colors">
+                        <p className="text-[9px] font-black text-blue-400 uppercase mb-1 truncate">{pos}</p>
+                        <div className="flex items-end justify-between">
+                          <span className="text-2xl font-black text-white">{count}</span>
+                          <MdMilitaryTech className="text-slate-700" size={20} />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-4 text-slate-600 text-xs font-black uppercase italic">
+                      No positions won in current data set.
                     </div>
-                    <div className="flex justify-between items-center border-t border-slate-800 pt-4">
-                        <span className="text-[10px] font-black uppercase">Grand Vote Tally</span>
-                        <span className="text-lg font-black text-yellow-500">{campStats.grandTotal.toLocaleString()}</span>
-                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* WIN RATE INDICATOR */}
+              <div className="px-8 py-4 bg-slate-900/20 border-t border-slate-800/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                   <MdLocationCity className="text-slate-600" />
+                   <span className="text-[9px] font-black text-slate-500 uppercase">Multi-District Dominance Level:</span>
+                   <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-blue-900 text-blue-200">
+                     {camp.totalWins > 5 ? 'High Influence' : 'Emerging'}
+                   </span>
+                </div>
+                <p className="text-[9px] font-bold text-slate-700 italic">SYNCED WITH CLOUD LEDGER</p>
+              </div>
+
             </div>
-
-            <button className="w-full py-5 bg-white text-slate-950 rounded-[2rem] font-black uppercase tracking-widest hover:bg-yellow-500 transition duration-300 flex items-center justify-center gap-3 shadow-xl">
-                <MdGroups size={24} /> EXPORT FULL ANALYSIS
-            </button>
-          </div>
-
+          ))}
         </div>
+
       </div>
     </div>
   );

@@ -35,15 +35,27 @@ export default function CoordinatorRegistration() {
     return () => unsubscribe();
   }, []);
 
+ // 1. IMPROVED FILTERING LOGIC
   const filteredConstituencies = useMemo(() => {
     if (!formData.district) return [];
+    
     const range = districtMapping[formData.district];
-    const list = [];
+    const allInDistrict = [];
+    
+    // Generate all potential constituencies for the district
     for (let i = range.start; i <= range.end; i++) {
-      list.push(`Con ${i.toString().padStart(3, "0")}`);
+      allInDistrict.push(`Con ${i.toString().padStart(3, "0")}`);
     }
-    return list;
-  }, [formData.district]);
+
+    // Identify constituencies already taken by other coordinators
+    // We EXCLUDE the current editingId so the user can re-select their own constituency during an update
+    const takenConstituencies = coordinators
+      .filter(c => c.id !== editingId) 
+      .map(c => c.constituency);
+
+    // Return only those that are NOT taken
+    return allInDistrict.filter(con => !takenConstituencies.includes(con));
+  }, [formData.district, coordinators, editingId]);
 
   // --- ACTIONS ---
 
@@ -90,6 +102,18 @@ export default function CoordinatorRegistration() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Final check to prevent race conditions (two people submitting at once)
+    const isTaken = coordinators.some(
+      c => c.constituency === formData.constituency && c.id !== editingId
+    );
+
+    if (isTaken) {
+      alert(`❌ Error: ${formData.constituency} is already assigned to another coordinator.`);
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       let finalPhotoUrl = preview;
@@ -178,8 +202,8 @@ export default function CoordinatorRegistration() {
                 </select>
 
                 <select name="constituency" value={formData.constituency} onChange={handleChange} disabled={!formData.district} className="p-4 bg-gray-50 border-none rounded-2xl font-bold text-xs disabled:opacity-50" required>
-                  <option value="">Con</option>
-                  {filteredConstituencies.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">{filteredConstituencies.length > 0 ? "Select Available Con" : "No Cons Available"}</option>
+  {filteredConstituencies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>

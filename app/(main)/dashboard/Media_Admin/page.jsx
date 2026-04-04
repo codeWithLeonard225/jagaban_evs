@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from "react";
-import { MdDashboard, MdLibraryBooks, MdKeyboardArrowDown, MdMenu, MdClose } from "react-icons/md";
+import { MdDashboard, MdLibraryBooks, MdKeyboardArrowDown, MdMenu, MdClose, MdLogout } from "react-icons/md";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
 import DeleteDataPage from "./DeleteData/page";
@@ -42,6 +42,8 @@ const NAV_ITEMS = [
       { key: "PositionLevelReport", label: "Position Level" },
     ],
   },
+
+  { key: "Logout", label: "Logout", icon: <MdLogout /> },
 ];
 
 const Button = ({ variant = "default", onClick, className = "", children }) => {
@@ -67,6 +69,17 @@ export default function AdminLedger() {
       }
     }
   }, [user, loading, router]);
+
+  const handleLogout = () => {
+  // Clear everything stored locally
+  localStorage.clear();
+
+  // Optional: clear sessionStorage too (recommended)
+  sessionStorage.clear();
+
+  // Redirect to login/home
+  router.push("/");
+};
 
   if (loading || !user) return null;
 
@@ -109,7 +122,14 @@ export default function AdminLedger() {
         ) : (
           <Button
             variant={activeTab === item.key ? "default" : "ghost"}
-            onClick={() => { handleTabChange(item.key); setOpenDropdown(null); }}
+            onClick={() => {
+  if (item.key === "Logout") {
+    handleLogout();
+  } else {
+    handleTabChange(item.key);
+    setOpenDropdown(null);
+  }
+}}
             className="gap-2"
           >
             {item.icon} {item.label}

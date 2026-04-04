@@ -22,7 +22,7 @@ export default function StateOfRaceSummary() {
   // --- STRATEGIC AGGREGATION LOGIC ---
   const districtAnalytics = useMemo(() => {
     const districts = {};
-    const processedSheets = new Set(); // To prevent over-counting shared totals
+    const processedSheets = new Set();
 
     results.forEach((item) => {
       const dName = item.district || "Unassigned";
@@ -32,29 +32,27 @@ export default function StateOfRaceSummary() {
       const totalOverall = Number(item.totalOverallVotes || 0);
       const invalid = Number(item.invalidVotes || 0);
       const valid = totalOverall - invalid;
+      const constituency = item.constituency || "N/A";
 
-      // Unique key to identify a specific result sheet/upload
-      // Even if 10 candidates are in the same position, they share this URL
       const sheetKey = `${item.constituency}_${pos}_${item.resultPhotoUrl}`;
 
       if (!districts[dName]) {
-        districts[dName] = {
-          totalValid: 0,
-          totalInvalid: 0,
-          positions: {}
-        };
+        districts[dName] = { totalValid: 0, totalInvalid: 0, positions: {} };
       }
 
-      // 1. UNIQUE CALCULATION: Only add valid/invalid once per sheet
       if (!processedSheets.has(sheetKey)) {
         districts[dName].totalValid += valid;
         districts[dName].totalInvalid += invalid;
         processedSheets.add(sheetKey);
       }
 
-      // 2. CANDIDATE AGGREGATION: Always add individual votes
       if (!districts[dName].positions[pos]) districts[dName].positions[pos] = {};
-      districts[dName].positions[pos][candidate] = (districts[dName].positions[pos][candidate] || 0) + votes;
+
+      // Store both votes and the constituency name
+      if (!districts[dName].positions[pos][candidate]) {
+        districts[dName].positions[pos][candidate] = { votes: 0, constituency: constituency };
+      }
+      districts[dName].positions[pos][candidate].votes += votes;
     });
 
     return districts;
@@ -73,7 +71,7 @@ export default function StateOfRaceSummary() {
         <div className="grid grid-cols-1 gap-10">
           {Object.entries(districtAnalytics).map(([district, data]) => (
             <div key={district} className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-100">
-              
+
               {/* DISTRICT HEADER STATS */}
               <div className="bg-slate-900 p-8 text-white flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-4">
@@ -106,18 +104,32 @@ export default function StateOfRaceSummary() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(data.positions).map(([pos, candidates]) => {
-                    // Sorting to find the leader
-                    const leader = Object.entries(candidates).sort((a, b) => b[1] - a[1])[0];
-                    
+                    // Sort based on the 'votes' property inside our new object structure
+                    const leaderEntry = Object.entries(candidates).sort((a, b) => b[1].votes - a[1].votes)[0];
+                    const leaderName = leaderEntry[0];
+                    const leaderData = leaderEntry[1];
+
                     return (
-                      <div key={pos} className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100 relative group hover:bg-blue-900 transition-colors duration-300">
-                        <p className="text-[9px] font-black text-slate-400 group-hover:text-blue-300 uppercase mb-2">{pos}</p>
+                      <div key={pos} className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100 relative group hover:bg-blue-900 transition-all duration-300 shadow-sm hover:shadow-xl">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-[9px] font-black text-slate-400 group-hover:text-blue-300 uppercase tracking-tighter">
+                            {pos}
+                          </p>
+                          <span className="text-[8px] bg-white group-hover:bg-blue-800 border group-hover:border-blue-700 px-2 py-0.5 rounded-full font-black text-slate-500 group-hover:text-white uppercase transition-colors">
+                            {leaderData.constituency}
+                          </span>
+                        </div>
+
                         <div className="flex justify-between items-end">
                           <div>
-                            <p className="text-lg font-black text-slate-800 group-hover:text-white leading-tight uppercase">{leader[0]}</p>
-                            <p className="text-[10px] font-bold text-blue-600 group-hover:text-yellow-400 mt-1 uppercase">
-                                {leader[1].toLocaleString()} Total Votes
+                            <p className="text-lg font-black text-slate-800 group-hover:text-white leading-tight uppercase tracking-tighter">
+                              {leaderName}
                             </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-[11px] font-black text-blue-600 group-hover:text-yellow-400 uppercase">
+                                {leaderData.votes.toLocaleString()} <span className="text-[8px] opacity-60">Votes</span>
+                              </p>
+                            </div>
                           </div>
                           <MdGppGood className="text-3xl text-green-500 group-hover:text-white opacity-20 group-hover:opacity-100 transition-opacity" />
                         </div>
@@ -129,14 +141,14 @@ export default function StateOfRaceSummary() {
 
               {/* STRATEGIC INTERVENTION FOOTER */}
               <div className="bg-blue-50 p-4 px-8 border-t border-blue-100 flex justify-between items-center">
-                 <div className="flex items-center gap-2 text-blue-800">
-                    <MdErrorOutline className="animate-pulse" />
-                    <span className="text-[10px] font-black uppercase">Intervention Level: </span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${data.totalInvalid > (data.totalValid * 0.05) ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
-                        {data.totalInvalid > (data.totalValid * 0.05) ? 'URGENT ATTENTION' : 'STABLE'}
-                    </span>
-                 </div>
-                 <p className="text-[9px] font-bold text-blue-400 italic uppercase">Report Live: {new Date().toLocaleTimeString()}</p>
+                <div className="flex items-center gap-2 text-blue-800">
+                  <MdErrorOutline className="animate-pulse" />
+                  <span className="text-[10px] font-black uppercase">Intervention Level: </span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${data.totalInvalid > (data.totalValid * 0.05) ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
+                    {data.totalInvalid > (data.totalValid * 0.05) ? 'URGENT ATTENTION' : 'STABLE'}
+                  </span>
+                </div>
+                <p className="text-[9px] font-bold text-blue-400 italic uppercase">Report Live: {new Date().toLocaleTimeString()}</p>
               </div>
             </div>
           ))}
